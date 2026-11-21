@@ -1,0 +1,59 @@
+name: FastPairLiveActivity
+options:
+  bundleIdPrefix: com.ffeflin
+  deploymentTarget:
+    iOS: "16.2"
+  xcodeVersion: "15.0"
+settings:
+  SWIFT_VERSION: "5.9"
+  DEVELOPMENT_TEAM: ""
+targets:
+  FastPairLiveActivity:
+    type: application
+    platform: iOS
+    sources:
+      - path: FastPairLiveActivity
+      - path: Shared
+    info:
+      path: FastPairLiveActivity/Info.plist
+      properties:
+        CFBundleDisplayName: "FastPair Live"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        UIBackgroundModes:
+          - audio
+          - bluetooth-central
+        NSBluetoothAlwaysUsageDescription: "Приложению необходим доступ к Bluetooth для обнаружения наушников и статуса батареи."
+        NSBluetoothPeripheralUsageDescription: "Приложению необходим доступ к Bluetooth для связи с наушниками."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ffeflin.fastpair
+            CFBundleURLSchemes:
+              - fastpair
+    entitlements:
+      path: FastPairLiveActivity/FastPairLiveActivity.entitlements
+      properties:
+        com.apple.developer.activity-kit: true
+    dependencies:
+      - target: HeadphoneWidgetExtension
+
+  HeadphoneWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: HeadphoneWidgetExtension
+      - path: Shared
+    info:
+      path: HeadphoneWidgetExtension/Info.plist
+      properties:
+        CFBundleDisplayName: "Headphone Status Widget"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: true
+    entitlements:
+      path: HeadphoneWidgetExtension/HeadphoneWidgetExtension.entitlements
+      properties:
+        com.apple.developer.activity-kit: true
