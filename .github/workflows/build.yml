@@ -1,0 +1,61 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build iOS App & IPA
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build Application (Unsigned)
+        run: |
+          xcodebuild clean build \
+            -project FastPairLiveActivity.xcodeproj \
+            -scheme FastPairLiveActivity \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package IPA and App Bundle
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/FastPairLiveActivity.app Payload/
+          zip -r FastPairLiveActivity-unsigned.ipa Payload
+          zip -r FastPairLiveActivity.app.zip build/Build/Products/Release-iphoneos/FastPairLiveActivity.app
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastPairLiveActivity-build
+          path: |
+            FastPairLiveActivity-unsigned.ipa
+            FastPairLiveActivity.app.zip
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            FastPairLiveActivity-unsigned.ipa
+            FastPairLiveActivity.app.zip
+          generate_release_notes: true
