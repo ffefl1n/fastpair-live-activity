@@ -18,9 +18,8 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
     private var centralManager: CBCentralManager?
     private var connectedPeripherals: [UUID: CBPeripheral] = [:]
 
-    // Google Fast Pair Service UUID: 0xFE2C
     public static let fastPairServiceUUID = CBUUID(string: "FE2C")
-    // Standard GATT Battery Service UUID: 0x180F, Characteristic: 0x2A19
+    public static let xiaomiServiceUUID = CBUUID(string: "FE95")
     public static let batteryServiceUUID = CBUUID(string: "180F")
     public static let batteryLevelCharUUID = CBUUID(string: "2A19")
 
@@ -44,7 +43,7 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
         guard centralManager?.state == .poweredOn else { return }
         isScanning = true
         centralManager?.scanForPeripherals(
-            withServices: [Self.fastPairServiceUUID, Self.batteryServiceUUID],
+            withServices: [Self.fastPairServiceUUID, Self.batteryServiceUUID, Self.xiaomiServiceUUID],
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
     }
@@ -53,8 +52,6 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
         centralManager?.stopScan()
         isScanning = false
     }
-
-    // MARK: - CBCentralManagerDelegate
 
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         if central.state == .poweredOn {
@@ -94,16 +91,18 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
             discoveredDevices.append(discovered)
         }
 
+        if let pName = peripheral.name, (pName.contains("Redmi") || pName.contains("Buds") || pName.contains("Xiaomi")) {
+            SettingsManager.shared.deviceName = pName
+        }
+
         connectedPeripherals[peripheral.identifier] = peripheral
         peripheral.delegate = self
         central.connect(peripheral, options: nil)
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([Self.batteryServiceUUID])
+        peripheral.discoverServices([Self.batteryServiceUUID, Self.xiaomiServiceUUID])
     }
-
-    // MARK: - CBPeripheralDelegate
 
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = peripheral.services else { return }
@@ -126,7 +125,7 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
               let batteryByte = value.first else { return }
 
         let battery = Int(batteryByte)
-        let name = peripheral.name ?? "Bluetooth Headset"
+        let name = peripheral.name ?? SettingsManager.shared.deviceName
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -134,13 +133,16 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
                 self.discoveredDevices[index].batteryLevel = battery
             }
 
+            SettingsManager.shared.defaultLeftBattery = battery
+            SettingsManager.shared.defaultRightBattery = battery
+
             LiveActivityManager.shared.startOrUpdateActivity(
                 deviceName: name,
                 leftBattery: battery,
                 rightBattery: battery,
-                caseBattery: nil,
-                singleBattery: battery,
-                modelType: .overEar
+                caseBattery: SettingsManager.shared.defaultCaseBattery,
+                singleBattery: nil,
+                modelType: SettingsManager.shared.modelType
             )
         }
     }
