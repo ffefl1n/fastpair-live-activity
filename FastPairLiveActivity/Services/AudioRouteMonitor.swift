@@ -78,14 +78,7 @@ public final class AudioRouteMonitor: ObservableObject {
             }
 
             if triggerNotification || !previouslyConnected {
-                let settings = SettingsManager.shared
-                LiveActivityManager.shared.startOrUpdateActivity(
-                    deviceName: name,
-                    leftBattery: settings.defaultLeftBattery,
-                    rightBattery: settings.defaultRightBattery,
-                    caseBattery: settings.defaultCaseBattery,
-                    modelType: settings.modelType
-                )
+                LiveActivityManager.shared.startOrUpdateActivity(deviceName: name)
             }
         } else {
             if self.isBluetoothAudioConnected {
