@@ -22,7 +22,7 @@ public final class AudioRouteMonitor: ObservableObject {
             object: AVAudioSession.sharedInstance()
         )
 
-        checkCurrentRoute()
+        checkCurrentRoute(triggerNotification: false)
     }
 
     public func stopMonitoring() {
@@ -57,7 +57,7 @@ public final class AudioRouteMonitor: ObservableObject {
         }
     }
 
-    private func checkCurrentRoute(triggerNotification: Bool = false) {
+    public func checkCurrentRoute(triggerNotification: Bool = false) {
         let currentRoute = AVAudioSession.sharedInstance().currentRoute
 
         let btOutputs = currentRoute.outputs.filter { output in
@@ -69,17 +69,22 @@ public final class AudioRouteMonitor: ObservableObject {
         if let firstBt = btOutputs.first {
             let name = firstBt.portName
             let previouslyConnected = self.isBluetoothAudioConnected
-            
+
             self.connectedDeviceName = name
             self.isBluetoothAudioConnected = true
 
+            if !name.isEmpty && name != "Headphones" && name != "Bluetooth Device" {
+                SettingsManager.shared.deviceName = name
+            }
+
             if triggerNotification || !previouslyConnected {
+                let settings = SettingsManager.shared
                 LiveActivityManager.shared.startOrUpdateActivity(
                     deviceName: name,
-                    leftBattery: 90,
-                    rightBattery: 85,
-                    caseBattery: 95,
-                    modelType: .tws
+                    leftBattery: settings.defaultLeftBattery,
+                    rightBattery: settings.defaultRightBattery,
+                    caseBattery: settings.defaultCaseBattery,
+                    modelType: settings.modelType
                 )
             }
         } else {
