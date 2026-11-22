@@ -14,14 +14,7 @@ public final class LiveActivityManager: ObservableObject {
         self.activeActivityId = currentActivity?.id
     }
 
-    public func startOrUpdateActivity(
-        deviceName: String,
-        leftBattery: Int? = 90,
-        rightBattery: Int? = 90,
-        caseBattery: Int? = 95,
-        singleBattery: Int? = nil,
-        modelType: HeadphoneActivityAttributes.HeadphoneModelType = .tws
-    ) {
+    public func startOrUpdateActivity(deviceName: String) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             print("Live Activities are not authorized.")
             return
@@ -30,12 +23,7 @@ public final class LiveActivityManager: ObservableObject {
         let state = HeadphoneActivityAttributes.ContentState(
             deviceName: deviceName,
             isConnected: true,
-            leftBattery: leftBattery,
-            rightBattery: rightBattery,
-            caseBattery: caseBattery,
-            singleBattery: singleBattery,
             statusMessage: "Подключено",
-            modelType: modelType,
             timestamp: Date()
         )
 
@@ -51,10 +39,7 @@ public final class LiveActivityManager: ObservableObject {
                 }
             }
         } else {
-            let attributes = HeadphoneActivityAttributes(
-                deviceIdentifier: deviceName,
-                preferredModelType: modelType
-            )
+            let attributes = HeadphoneActivityAttributes(deviceIdentifier: deviceName)
 
             do {
                 let activity = try Activity<HeadphoneActivityAttributes>.request(
@@ -79,12 +64,7 @@ public final class LiveActivityManager: ObservableObject {
         let state = HeadphoneActivityAttributes.ContentState(
             deviceName: activity.content.state.deviceName,
             isConnected: false,
-            leftBattery: activity.content.state.leftBattery,
-            rightBattery: activity.content.state.rightBattery,
-            caseBattery: activity.content.state.caseBattery,
-            singleBattery: activity.content.state.singleBattery,
             statusMessage: "Отключено",
-            modelType: activity.content.state.modelType,
             timestamp: Date()
         )
 
@@ -121,9 +101,7 @@ public final class LiveActivityManager: ObservableObject {
         let settings = SettingsManager.shared
         guard settings.autoDismiss && settings.autoDismissDelay > 0 else { return }
 
-        let delay = settings.autoDismissDelay
-
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: settings.autoDismissDelay, repeats: false) { [weak self] _ in
             guard let self = self, let activity = self.currentActivity else { return }
             Task {
                 await activity.end(dismissalPolicy: .immediate)
