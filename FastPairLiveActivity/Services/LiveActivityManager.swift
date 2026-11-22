@@ -5,8 +5,6 @@ public final class LiveActivityManager: ObservableObject {
     public static let shared = LiveActivityManager()
 
     @Published public private(set) var activeActivityId: String?
-    @Published public var autoDismissDelay: TimeInterval = 15.0
-    @Published public var shouldAutoDismiss: Bool = true
 
     private var currentActivity: Activity<HeadphoneActivityAttributes>?
     private var dismissTimer: Timer?
@@ -18,9 +16,9 @@ public final class LiveActivityManager: ObservableObject {
 
     public func startOrUpdateActivity(
         deviceName: String,
-        leftBattery: Int? = 85,
-        rightBattery: Int? = 80,
-        caseBattery: Int? = 90,
+        leftBattery: Int? = 90,
+        rightBattery: Int? = 90,
+        caseBattery: Int? = 95,
         singleBattery: Int? = nil,
         modelType: HeadphoneActivityAttributes.HeadphoneModelType = .tws
     ) {
@@ -49,7 +47,7 @@ public final class LiveActivityManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.currentActivity = existingActivity
                     self.activeActivityId = existingActivity.id
-                    self.scheduleAutoDismissIfNeeded()
+                    self.scheduleAutoDismiss()
                 }
             }
         } else {
@@ -67,7 +65,7 @@ public final class LiveActivityManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.currentActivity = activity
                     self.activeActivityId = activity.id
-                    self.scheduleAutoDismissIfNeeded()
+                    self.scheduleAutoDismiss()
                 }
             } catch {
                 print("Failed to start Live Activity: \(error)")
@@ -92,7 +90,7 @@ public final class LiveActivityManager: ObservableObject {
 
         Task {
             await activity.update(ActivityContent(state: state, staleDate: nil))
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
             await activity.end(dismissalPolicy: .immediate)
             DispatchQueue.main.async {
                 self.currentActivity = nil
@@ -116,16 +114,19 @@ public final class LiveActivityManager: ObservableObject {
         }
     }
 
-    private func scheduleAutoDismissIfNeeded() {
+    private func scheduleAutoDismiss() {
         dismissTimer?.invalidate()
         dismissTimer = nil
 
-        guard shouldAutoDismiss && autoDismissDelay > 0 else { return }
+        let settings = SettingsManager.shared
+        guard settings.autoDismiss && settings.autoDismissDelay > 0 else { return }
 
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: autoDismissDelay, repeats: false) { [weak self] _ in
+        let delay = settings.autoDismissDelay
+
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self, let activity = self.currentActivity else { return }
             Task {
-                await activity.end(dismissalPolicy: .after(Date().addingTimeInterval(1)))
+                await activity.end(dismissalPolicy: .immediate)
                 DispatchQueue.main.async {
                     self.currentActivity = nil
                     self.activeActivityId = nil
