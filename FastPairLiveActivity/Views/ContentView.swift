@@ -1,33 +1,57 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var settings = SettingsManager.shared
     @EnvironmentObject var audioMonitor: AudioRouteMonitor
     @EnvironmentObject var bleScanner: FastPairBLEScanner
     @EnvironmentObject var activityManager: LiveActivityManager
 
-    @State private var testDeviceName: String = "Sony WF-1000XM4"
-    @State private var testLeftBattery: Double = 85
-    @State private var testRightBattery: Double = 80
-    @State private var testCaseBattery: Double = 95
-    @State private var selectedModelType: HeadphoneActivityAttributes.HeadphoneModelType = .tws
+    @State private var isShowingFullscreenDemo = false
     @State private var isShowingCopiedToast = false
 
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("Состояние мониторинга")) {
+                Section(header: Text("Быстрый выбор наушников")) {
+                    Button(action: {
+                        settings.applyRedmiBuds8ActivePreset()
+                    }) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.red.opacity(0.15))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "earbuds")
+                                    .font(.title3)
+                                    .foregroundColor(.red)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Пресет: Redmi Buds 8 Active")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text("TWS, 15 сек. авто-закрытие, Fullscreen")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(settings.deviceName == "Redmi Buds 8 Active" ? .green : .clear)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                Section(header: Text("Состояние подключения")) {
                     HStack {
                         Image(systemName: audioMonitor.isBluetoothAudioConnected ? "headphones" : "headphones.circle")
                             .foregroundColor(audioMonitor.isBluetoothAudioConnected ? .green : .secondary)
                             .font(.title2)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(audioMonitor.isBluetoothAudioConnected ? "Аудио подключено" : "Ожидание подключения...")
+                            Text(audioMonitor.isBluetoothAudioConnected ? "Подключено к аудио" : "Ожидание подключения...")
                                 .font(.headline)
-                            if let name = audioMonitor.connectedDeviceName {
-                                Text(name)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text(audioMonitor.connectedDeviceName ?? settings.deviceName)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 4)
@@ -37,7 +61,7 @@ struct ContentView: View {
                             .foregroundColor(activityManager.activeActivityId != nil ? .yellow : .secondary)
                         Text("Live Activity:")
                         Spacer()
-                        Text(activityManager.activeActivityId != nil ? "Активна на экране" : "Не запущена")
+                        Text(activityManager.activeActivityId != nil ? "Активна (15 сек.)" : "Спит")
                             .foregroundColor(activityManager.activeActivityId != nil ? .green : .secondary)
                     }
 
@@ -45,44 +69,42 @@ struct ContentView: View {
                         Button(role: .destructive, action: {
                             activityManager.stopActivityImmediately()
                         }) {
-                            Label("Закрыть карточку Live Activity", systemImage: "xmark.circle")
+                            Label("Закрыть Live Activity", systemImage: "xmark.circle")
                         }
                     }
                 }
 
-                Section(header: Text("Тест / Демонстрация карточки"), footer: Text("Нажмите кнопку ниже, чтобы моментально запустить Live Activity и увидеть карточку на экране блокировки вашего iPhone.")) {
-                    TextField("Название наушников", text: $testDeviceName)
+                Section(header: Text("Просмотр карточки и Fullscreen"), footer: Text("Нажмите кнопку, чтобы увидеть полноэкранное окно с анимацией и запустить Live Activity.")) {
+                    TextField("Имя устройства", text: $settings.deviceName)
 
-                    Picker("Тип устройства", selection: $selectedModelType) {
-                        ForEach(HeadphoneActivityAttributes.HeadphoneModelType.allCases, id: \.self) { type in
-                            Text(type.title).tag(type)
-                        }
+                    VStack(alignment: .leading) {
+                        Text("Левый наушник: \(settings.defaultLeftBattery)%")
+                        Slider(value: Binding(
+                            get: { Double(settings.defaultLeftBattery) },
+                            set: { settings.defaultLeftBattery = Int($0) }
+                        ), in: 0...100, step: 5)
                     }
 
-                    if selectedModelType == .tws {
-                        VStack(alignment: .leading) {
-                            Text("Левый наушник: \(Int(testLeftBattery))%")
-                            Slider(value: $testLeftBattery, in: 0...100, step: 5)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Правый наушник: \(Int(testRightBattery))%")
-                            Slider(value: $testRightBattery, in: 0...100, step: 5)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Кейс: \(Int(testCaseBattery))%")
-                            Slider(value: $testCaseBattery, in: 0...100, step: 5)
-                        }
-                    } else {
-                        VStack(alignment: .leading) {
-                            Text("Батарея: \(Int(testLeftBattery))%")
-                            Slider(value: $testLeftBattery, in: 0...100, step: 5)
-                        }
+                    VStack(alignment: .leading) {
+                        Text("Правый наушник: \(settings.defaultRightBattery)%")
+                        Slider(value: Binding(
+                            get: { Double(settings.defaultRightBattery) },
+                            set: { settings.defaultRightBattery = Int($0) }
+                        ), in: 0...100, step: 5)
                     }
 
-                    Button(action: triggerSimulation) {
+                    VStack(alignment: .leading) {
+                        Text("Кейс: \(settings.defaultCaseBattery)%")
+                        Slider(value: Binding(
+                            get: { Double(settings.defaultCaseBattery) },
+                            set: { settings.defaultCaseBattery = Int($0) }
+                        ), in: 0...100, step: 5)
+                    }
+
+                    Button(action: triggerFullConnectionFlow) {
                         HStack {
                             Spacer()
-                            Label("Запустить Live Activity", systemImage: "play.fill")
+                            Label("Показать Fullscreen + Live Activity", systemImage: "play.circle.fill")
                                 .font(.headline)
                             Spacer()
                         }
@@ -91,43 +113,59 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                 }
 
-                Section(header: Text("Параметры закрытия")) {
-                    Toggle("Авто-закрытие (как у AirPods)", isOn: $activityManager.shouldAutoDismiss)
+                Section(header: Text("Параметры сохранения и таймера")) {
+                    Toggle("Авто-закрытие карточки", isOn: $settings.autoDismiss)
 
-                    if activityManager.shouldAutoDismiss {
-                        Stepper(value: $activityManager.autoDismissDelay, in: 5...60, step: 5) {
-                            Text("Закрывать через: \(Int(activityManager.autoDismissDelay)) сек.")
+                    if settings.autoDismiss {
+                        Stepper(value: $settings.autoDismissDelay, in: 5...60, step: 5) {
+                            Text("Таймер закрытия: \(Int(settings.autoDismissDelay)) сек.")
                         }
                     }
+
+                    Toggle("Показывать Fullscreen при открытии", isOn: $settings.showFullscreenOnConnect)
                 }
 
-                Section(header: Text("Автоматизация через iOS Shortcuts"), footer: Text("Для 100% моментального срабатывания настройте автоматизацию в приложении «Команды» по триггеру Bluetooth.")) {
+                Section(header: Text("Автоматизация через iOS Shortcuts"), footer: Text("При подключении Redmi Buds 8 Active шорткат откроет приложение на долю секунды, покажет Fullscreen шторку и запустит 15-секундную Live Activity.")) {
                     Button(action: copyShortcutsURL) {
-                        Label(isShowingCopiedToast ? "Ссылка скопирована!" : "Скопировать URL для автоматизации", systemImage: isShowingCopiedToast ? "checkmark" : "doc.on.doc")
+                        Label(isShowingCopiedToast ? "Ссылка скопирована!" : "Скопировать URL для шортката", systemImage: isShowingCopiedToast ? "checkmark" : "doc.on.doc")
                     }
-                    Text("fastpair://connect?name=\(testDeviceName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&left=\(Int(testLeftBattery))&right=\(Int(testRightBattery))&case=\(Int(testCaseBattery))")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    Text("fastpair://connect")
+                        .font(.caption.bold())
+                        .foregroundColor(.blue)
                 }
             }
             .navigationTitle("FastPair Live")
         }
+        .sheet(isPresented: $isShowingFullscreenDemo) {
+            FullscreenPopupView(
+                deviceName: audioMonitor.connectedDeviceName ?? settings.deviceName,
+                leftBattery: settings.defaultLeftBattery,
+                rightBattery: settings.defaultRightBattery,
+                caseBattery: settings.defaultCaseBattery,
+                autoDismissSeconds: settings.autoDismissDelay,
+                onDismiss: {
+                    isShowingFullscreenDemo = false
+                }
+            )
+        }
     }
 
-    private func triggerSimulation() {
+    private func triggerFullConnectionFlow() {
+        let name = audioMonitor.connectedDeviceName ?? settings.deviceName
+
         activityManager.startOrUpdateActivity(
-            deviceName: testDeviceName,
-            leftBattery: Int(testLeftBattery),
-            rightBattery: Int(testRightBattery),
-            caseBattery: selectedModelType == .tws ? Int(testCaseBattery) : nil,
-            singleBattery: selectedModelType != .tws ? Int(testLeftBattery) : nil,
-            modelType: selectedModelType
+            deviceName: name,
+            leftBattery: settings.defaultLeftBattery,
+            rightBattery: settings.defaultRightBattery,
+            caseBattery: settings.defaultCaseBattery,
+            modelType: settings.modelType
         )
+
+        isShowingFullscreenDemo = true
     }
 
     private func copyShortcutsURL() {
-        let urlString = "fastpair://connect?name=\(testDeviceName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&left=\(Int(testLeftBattery))&right=\(Int(testRightBattery))&case=\(Int(testCaseBattery))"
-        UIPasteboard.general.string = urlString
+        UIPasteboard.general.string = "fastpair://connect"
         isShowingCopiedToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             isShowingCopiedToast = false
