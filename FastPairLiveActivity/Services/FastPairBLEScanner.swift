@@ -6,7 +6,6 @@ public struct DiscoveredHeadphone: Identifiable, Hashable {
     public let name: String
     public let rssi: Int
     public let isFastPair: Bool
-    public var batteryLevel: Int?
 }
 
 public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
@@ -20,8 +19,6 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
 
     public static let fastPairServiceUUID = CBUUID(string: "FE2C")
     public static let xiaomiServiceUUID = CBUUID(string: "FE95")
-    public static let batteryServiceUUID = CBUUID(string: "180F")
-    public static let batteryLevelCharUUID = CBUUID(string: "2A19")
 
     private override init() {
         super.init()
@@ -43,7 +40,7 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
         guard centralManager?.state == .poweredOn else { return }
         isScanning = true
         centralManager?.scanForPeripherals(
-            withServices: [Self.fastPairServiceUUID, Self.batteryServiceUUID, Self.xiaomiServiceUUID],
+            withServices: [Self.fastPairServiceUUID, Self.xiaomiServiceUUID],
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
     }
@@ -83,8 +80,7 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
             id: peripheral.identifier,
             name: name,
             rssi: RSSI.intValue,
-            isFastPair: isFastPair,
-            batteryLevel: nil
+            isFastPair: isFastPair
         )
 
         if !discoveredDevices.contains(where: { $0.id == discovered.id }) {
@@ -101,49 +97,9 @@ public final class FastPairBLEScanner: NSObject, ObservableObject, CBCentralMana
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([Self.batteryServiceUUID, Self.xiaomiServiceUUID])
-    }
-
-    public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let services = peripheral.services else { return }
-        for service in services where service.uuid == Self.batteryServiceUUID {
-            peripheral.discoverCharacteristics([Self.batteryLevelCharUUID], for: service)
-        }
-    }
-
-    public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard let chars = service.characteristics else { return }
-        for char in chars where char.uuid == Self.batteryLevelCharUUID {
-            peripheral.readValue(for: char)
-            peripheral.setNotifyValue(true, for: char)
-        }
-    }
-
-    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard characteristic.uuid == Self.batteryLevelCharUUID,
-              let value = characteristic.value,
-              let batteryByte = value.first else { return }
-
-        let battery = Int(batteryByte)
         let name = peripheral.name ?? SettingsManager.shared.deviceName
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if let index = self.discoveredDevices.firstIndex(where: { $0.id == peripheral.identifier }) {
-                self.discoveredDevices[index].batteryLevel = battery
-            }
-
-            SettingsManager.shared.defaultLeftBattery = battery
-            SettingsManager.shared.defaultRightBattery = battery
-
-            LiveActivityManager.shared.startOrUpdateActivity(
-                deviceName: name,
-                leftBattery: battery,
-                rightBattery: battery,
-                caseBattery: SettingsManager.shared.defaultCaseBattery,
-                singleBattery: nil,
-                modelType: SettingsManager.shared.modelType
-            )
+        DispatchQueue.main.async {
+            LiveActivityManager.shared.startOrUpdateActivity(deviceName: name)
         }
     }
 }
