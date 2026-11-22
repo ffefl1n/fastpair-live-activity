@@ -14,6 +14,9 @@ targets:
     sources:
       - path: FastPairLiveActivity
       - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ffeflin.FastPairLiveActivity
     info:
       path: FastPairLiveActivity/Info.plist
       properties:
@@ -44,6 +47,9 @@ targets:
     sources:
       - path: HeadphoneWidgetExtension
       - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ffeflin.FastPairLiveActivity.HeadphoneWidgetExtension
     info:
       path: HeadphoneWidgetExtension/Info.plist
       properties:
